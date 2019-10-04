@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+BLACK=$'\e[30m' RED=$'\e[31m' GREEN=$'\e[32m' YELLOW=$'\e[33m' BLUE=$'\e[34m' PURPLE=$'\e[35m' LIGHT_BLUE=$'\e[36m' WHITE=$'\e[37m' GRAY=$'\e[90m' DEFAULT=$'\e[0m'
+
+# GITLAB_PRIVATE_TOKEN
+# GITLAB_URL
+SLEEP_INTERVAL=${SLEEP_INTERVAL:-3}
+
+request() {
+  local query="$1"
+  local api_version='v4'
+  echo 1>&2 "${GREEN}# [LOG]${YELLOW} curl --request GET --header "PRIVATE-TOKEN: $GITLAB_PRIVATE_TOKEN" "$GITLAB_URL/api/$api_version/$query"${DEFAULT}"
+  curl --request GET --header "PRIVATE-TOKEN: $GITLAB_PRIVATE_TOKEN" "$GITLAB_URL/api/$api_version/$query"
+}
+
+download() {
+  local project_id=$1
+  local issue_id=$2
+  local title=$(printf '%s' "$3" | sed -E -e 's/:/_/g' -e 's:[/ "'"'"'()]|\[|\]:_:g')
+  local out="${project_id}/${issue_id}_${title}.json"
+  local query="projects/$project_id/issues/$issue_id/notes"
+  mkdir -p $(dirname "$out")
+  request "$query" >$out
+  cat $out | jq ".[].body" |
+    awk '{print $0; print "---------------------------------------------------------------------------------------------------"}' |
+    sed 's/\\n/\n/g' >$out.log
+}
+
+project_list() {
+  # NOTE: max project number <= 100 * 10
+  for ((i = 1; i < 10; i++)); do
+    local page=$i
+    local output
+    # NOTE: jq -C: colorize JSON;
+    output=$(request "projects?per_page=100&page=$page" | jq -C '.[] | [.id, .name, .description, .web_url]')
+    if [[ -z $output ]]; then
+      break
+    fi
+    echo "$output"
+  done
+}
+
+main() {
+  [[ -z $GITLAB_PRIVATE_TOKEN ]] && echo 1>&2 "set GITLAB_PRIVATE_TOKEN env" && return 1
+  [[ -z $GITLAB_URL ]] && echo 1>&2 "set GITLAB_URL env (e.g. https://xxx:yyy)" && return 1
+
+  local project_id=$1
+  [[ $1 =~ ^(-h|-{1,2}help)$ ]] && echo "$0 "'project_id' && exit 1
+  if [[ $# -lt 1 ]]; then
+    project_list
+    return
+  fi
+
+  # NOTE: max issue number <= 100
+  # request "projects/$project_id/issues?per_page=100" >issue_list.json
+  max_issue=$(cat issue_list.json | jq '.[0].iid')
+  for ((i = 1; i < max_issue; i++)); do
+    issue_id=$i
+    title=$(cat issue_list.json | jq "(.[] | select(.iid==$issue_id)).title")
+    echo "# [LOG] [$issue_id] $title"
+    download "$project_id" "$issue_id" "$title"
+    sleep $SLEEP_INTERVAL
+  done
+}
+
+main "$@"
