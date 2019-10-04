@@ -52,7 +52,7 @@ main() {
   fi
 
   # NOTE: max issue number <= 100
-  # request "projects/$project_id/issues?per_page=100" >issue_list.json
+  request "projects/$project_id/issues?per_page=100" >issue_list.json
   max_issue=$(cat issue_list.json | jq '.[0].iid')
   for ((i = 1; i < max_issue; i++)); do
     issue_id=$i
