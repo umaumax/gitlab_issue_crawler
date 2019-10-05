@@ -22,6 +22,16 @@ git add <project_id> # dir
 git grep 'keyword'
 ```
 
+## setting file
+WARN: set url without last `/`
+```
+{
+  "http://xxx:1234": "token_xxx",
+  "DEFAULT_GITLAB_URL": "http://xxx:1234",
+  "DEFAULT_GITLAB_PRIVATE_TOKEN": "token_xxx"
+}
+```
+
 ## TODO
 * add function to download description
 
