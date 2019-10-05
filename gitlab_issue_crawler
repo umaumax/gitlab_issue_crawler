@@ -47,6 +47,11 @@ load_default_config() {
   TMP_GITLAB_URL=$(remove_path_from_query $url)
   TMP_GITLAB_PRIVATE_TOKEN=$(load_config "$TMP_GITLAB_URL")
   if [[ -z $TMP_GITLAB_PRIVATE_TOKEN ]] || [[ $TMP_GITLAB_PRIVATE_TOKEN == 'null' ]]; then
+    # NOTE: try with '/' suffix pattern
+    TMP_GITLAB_URL="$TMP_GITLAB_URL/"
+    TMP_GITLAB_PRIVATE_TOKEN=$(load_config "$TMP_GITLAB_URL")
+  fi
+  if [[ -z $TMP_GITLAB_PRIVATE_TOKEN ]] || [[ $TMP_GITLAB_PRIVATE_TOKEN == 'null' ]]; then
     DEFAULT_GITLAB_URL=${DEFAULT_GITLAB_URL:-$(load_config "DEFAULT_GITLAB_URL")}
     DEFAULT_GITLAB_PRIVATE_TOKEN=${DEFAULT_GITLAB_PRIVATE_TOKEN:-$(load_config "DEFAULT_GITLAB_PRIVATE_TOKEN")}
   else

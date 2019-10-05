@@ -26,7 +26,11 @@ git grep 'keyword'
 ```
 
 ## setting file
-WARN: set url without last `/`
+* access order
+  1. `./.gitlab_issue_crawler.json`
+  1. `~/.gitlab_issue_crawler.json`
+
+e.g.
 ```
 {
   "http://xxx:1234": "token_xxx",
