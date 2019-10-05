@@ -15,6 +15,9 @@ GITLAB_PRIVATE_TOKEN="xxx" GITLAB_URL="http://xxx:1234" gitlab_issue_crawler
 
 # download project all issue (only comments)
 GITLAB_PRIVATE_TOKEN="xxx" GITLAB_URL="http://xxx:1234" gitlab_issue_crawler <project_id>
+
+# direct setting by arg
+gitlab_issue_crawler https://xxx:1234/user_name/repo_name
 ```
 
 ```

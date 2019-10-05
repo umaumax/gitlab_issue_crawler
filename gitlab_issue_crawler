@@ -6,6 +6,55 @@ BLACK=$'\e[30m' RED=$'\e[31m' GREEN=$'\e[32m' YELLOW=$'\e[33m' BLUE=$'\e[34m' PU
 # GITLAB_URL
 SLEEP_INTERVAL=${SLEEP_INTERVAL:-3}
 
+# ----
+
+! type >/dev/null 2>&1 jq && echo 1>&2 "not found jq command" && exit 1
+
+load_config() {
+  local key=$1
+  CONFIG_FILEPATH=".gitlab_issue_crawler.json"
+  if [[ -f $CONFIG_FILEPATH ]]; then
+    cat $CONFIG_FILEPATH | jq -r '."'"$key"'"'
+  elif [[ -f ~/$CONFIG_FILEPATH ]]; then
+    cat ~/$CONFIG_FILEPATH | jq -r '."'"$key"'"'
+  else
+    return 1
+  fi
+  return
+}
+
+get_gitlab_repo_base_url() {
+  local url=$1
+  printf '%s' "$url" | cut -d'/' -f-5
+}
+
+get_gitlab_repo_name() {
+  local url=$1
+  printf '%s' "$url" | cut -d'/' -f 5
+}
+
+remove_path_from_query() {
+  local url=$1
+  printf '%s' "$url" | grep -o -E 'http(s)?://([0-9a-zA-Z_.]|-)+(:[0-9]+)?'
+}
+
+load_default_config() {
+  if [[ -n $GITLAB_PRIVATE_TOKEN ]] || [[ -n $GITLAB_URL ]]; then
+    return
+  fi
+
+  local url="$1"
+  TMP_GITLAB_URL=$(remove_path_from_query $url)
+  TMP_GITLAB_PRIVATE_TOKEN=$(load_config "$TMP_GITLAB_URL")
+  if [[ -z $TMP_GITLAB_PRIVATE_TOKEN ]] || [[ $TMP_GITLAB_PRIVATE_TOKEN == 'null' ]]; then
+    DEFAULT_GITLAB_URL=${DEFAULT_GITLAB_URL:-$(load_config "DEFAULT_GITLAB_URL")}
+    DEFAULT_GITLAB_PRIVATE_TOKEN=${DEFAULT_GITLAB_PRIVATE_TOKEN:-$(load_config "DEFAULT_GITLAB_PRIVATE_TOKEN")}
+  else
+    DEFAULT_GITLAB_URL="$TMP_GITLAB_URL"
+    DEFAULT_GITLAB_PRIVATE_TOKEN="$TMP_GITLAB_PRIVATE_TOKEN"
+  fi
+}
+
 request() {
   local query="$1"
   local api_version='v4'
@@ -40,15 +89,50 @@ project_list() {
   done
 }
 
-main() {
-  [[ -z $GITLAB_PRIVATE_TOKEN ]] && echo 1>&2 "set GITLAB_PRIVATE_TOKEN env" && return 1
-  [[ -z $GITLAB_URL ]] && echo 1>&2 "set GITLAB_URL env (e.g. https://xxx:yyy)" && return 1
+weburl_to_id() {
+  # NOTE: max project number <= 100 * 10
+  for ((i = 1; i < 10; i++)); do
+    local page=$i
+    local output
+    # NOTE: jq -C: colorize JSON;
+    output=$(request "projects?per_page=100&page=$page" | jq -r '(.[] | select(.web_url=="'"$web_url"'")).id')
+    if [[ -z $output ]]; then
+      break
+    fi
+    echo "$output"
+    break
+  done
+}
 
+main() {
   local project_id=$1
-  [[ $1 =~ ^(-h|-{1,2}help)$ ]] && echo "$0 "'project_id' && exit 1
+  [[ $1 =~ ^(-h|-{1,2}help)$ ]] && echo "$0 "'project_id or web_url' && exit 1
+
+  local url=$1
+  load_default_config "$url"
+
+  if [[ -z $GITLAB_PRIVATE_TOKEN ]]; then
+    if [[ -z $DEFAULT_GITLAB_PRIVATE_TOKEN ]]; then
+      echo 1>&2 "set GITLAB_PRIVATE_TOKEN env" && return 1
+    fi
+    GITLAB_PRIVATE_TOKEN="$DEFAULT_GITLAB_PRIVATE_TOKEN"
+  fi
+  if [[ -z $GITLAB_URL ]]; then
+    if [[ -z $DEFAULT_GITLAB_URL ]]; then
+      echo 1>&2 "set GITLAB_URL env (e.g. https://xxx:yyy)" && return 1
+    fi
+    GITLAB_URL="$DEFAULT_GITLAB_URL"
+  fi
+
   if [[ $# -lt 1 ]]; then
     project_list
     return
+  fi
+
+  if [[ ! $project_id =~ ^[0-9]+$ ]]; then
+    local web_url=$(get_gitlab_repo_base_url "$url")
+    project_id=$(weburl_to_id "$web_url")
+    [[ -z $project_id ]] && echo 1>&2 "not found '$web_url' info" && return 1
   fi
 
   # NOTE: max issue number <= 100
