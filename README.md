@@ -2,6 +2,12 @@
 
 This repo can search gitlab issue comments by git grep!
 
+* TL;DR
+  * __NOTE: issueの検索窓ではなく、もう一段階上場所にある検索窓の検索結果の`comments`を参照...__
+
+----
+----
+
 * gitlab has no API to search issue comments
   * [Add Search option for Issues that User has commented on \(\#28268\) · Issues · GitLab\.org / GitLab · GitLab]( https://gitlab.com/gitlab-org/gitlab/issues/28268 )
   * [Ability to search issue comments \(not just original post\) \(\#28028\) · Issues · GitLab\.org / GitLab FOSS · GitLab]( https://gitlab.com/gitlab-org/gitlab-foss/issues/28028 )
